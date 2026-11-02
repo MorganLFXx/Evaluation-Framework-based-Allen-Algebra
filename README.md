@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Paper](https://img.shields.io/badge/Paper-NeurIPS%202026%20D%26E%20(Oral)-blue)](https://openreview.net/forum?id=ay0UXDsniW)
+[![Paper](https://img.shields.io/badge/Paper-NeurIPS%202026%20E%26D%20(Oral)-blue)](https://openreview.net/forum?id=ay0UXDsniW)
 [![Dataset](https://img.shields.io/badge/Dataset-Hugging%20Face-yellow)](https://huggingface.co/datasets/xinxiangmg/ALTER)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
