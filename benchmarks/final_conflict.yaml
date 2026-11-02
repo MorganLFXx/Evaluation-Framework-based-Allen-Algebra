@@ -1,0 +1,9 @@
+# Paper benchmark: CSD (1,000 samples), datasets/final_conflict.json
+# Override model / workers to match the model under evaluation.
+name: final_conflict
+dataset: final_conflict
+task: conflict
+model: qwen3.5-plus
+check_model: qwen3.5-plus
+workers: 8
+stages: [respond, verify, error_check]

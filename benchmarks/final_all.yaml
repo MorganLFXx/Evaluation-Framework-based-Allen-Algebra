@@ -1,0 +1,11 @@
+# Paper benchmark: GOD + LGC + CSD (2,500 samples).
+# `task: auto` dispatches per sample from target keys.
+# Works with datasets/final_all.json or datasets/final_all.jsonl (same
+# internal schema); a JSONL-only checkout is materialised to JSON on first run.
+name: final_all
+dataset: final_all
+task: auto
+model: qwen3.5-plus
+check_model: qwen3.5-plus
+workers: 8
+stages: [respond, verify, error_check]

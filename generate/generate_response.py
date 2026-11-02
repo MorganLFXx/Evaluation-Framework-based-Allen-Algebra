@@ -203,9 +203,20 @@ def fill_chat(sample, model):
     return answers
 
 
+def infer_chat_type(sample):
+    target = sample.get("target", {})
+    if "conflict_no" in target:
+        return "conflict"
+    if "blank_object" in target:
+        return "fill"
+    return "single"
+
+
 def process_sample(index, sample, chat_type, model):
     if (index + 1) % 5 == 0:
         print(f"== 正在处理第 {index + 1} 个用例 ==")
+    if chat_type == "auto":
+        chat_type = infer_chat_type(sample)
     if chat_type == "single":
         return single_chat(sample, model)
     if chat_type == "conflict":
@@ -391,7 +402,7 @@ def multi_thread_generate(samples, name, chat_type, model, workers):
                 _atomic_dump_json(thread_out_path, thread_results)
             except Exception as e:
                 print(
-                    f"  ❌ 线程 {thread_no} 处理第 {index + 1} 个用例出错，已跳过: {e}，回答为：{answers}"
+                    f"  ❌ 线程 {thread_no} 处理第 {index + 1} 个用例出错，已跳过: {e}"
                 )
                 thread_results.append(
                     {
@@ -417,8 +428,8 @@ def multi_thread_generate(samples, name, chat_type, model, workers):
 def main(name, chat_type, model, workers=1, hint="hint"):
     if not name:
         raise ValueError("name is required")
-    if chat_type not in {"single", "conflict", "fill"}:
-        raise ValueError("chat_type must be 'single', 'conflict' or 'fill'")
+    if chat_type not in {"single", "conflict", "fill", "auto"}:
+        raise ValueError("chat_type must be 'single', 'conflict', 'fill' or 'auto'")
     if hint not in {"hint", "story"}:
         raise ValueError("hint must be 'hint' or 'story'")
     temp_dir = f"datasets/temp/{name}_{model}"

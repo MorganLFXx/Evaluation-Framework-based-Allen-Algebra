@@ -11,7 +11,6 @@ from generate import generate_response
 from generate import generate_sp_task
 from explain import qa_checker
 from explain import error_checker
-from explain import extract_error
 
 
 def main():
@@ -87,59 +86,6 @@ def main():
         help="Model name for call_api",
     )
 
-    extract_parser = subparsers.add_parser(
-        "extract", help="Extract repeatedly wrong samples"
-    )
-    extract_parser.add_argument(
-        "--paths",
-        nargs="+",
-        required=True,
-        help="Input answer datasets: names or *_with_answers.json files",
-    )
-    extract_parser.add_argument(
-        "--workers",
-        type=int,
-        default=1,
-        help="并行调用线程数",
-    )
-    extract_parser.add_argument(
-        "--model",
-        type=str,
-        default="qwen3.5-plus",
-        help="调用的模型名称",
-    )
-    extract_parser.add_argument(
-        "--rounds",
-        type=int,
-        default=4,
-        help="重复生成与校验轮数",
-    )
-    extract_parser.add_argument(
-        "--threshold",
-        type=int,
-        default=2,
-        help="达到该错误次数后从后续轮次移除，并进入最终数据集",
-    )
-    extract_parser.add_argument(
-        "--output-name",
-        type=str,
-        default="extract_error",
-        help="输出文件名前缀",
-    )
-    extract_parser.add_argument(
-        "--chat_type",
-        type=str,
-        choices=["single", "conflict", "fill"],
-        help="问题类型(不传则自动推断)",
-    )
-    extract_parser.add_argument(
-        "--hint",
-        type=str,
-        choices=["hint", "story"],
-        default="hint",
-        help="提示来源类型",
-    )
-
     pipeline_parser = subparsers.add_parser("pipeline", help="Run the full pipeline")
     pipeline_parser.add_argument(
         "--name",
@@ -190,6 +136,45 @@ def main():
         help="Whether to skip error checking in the full pipeline",
     )
 
+    run_parser = subparsers.add_parser("run", help="Run an experiment from a YAML config")
+    run_parser.add_argument("config", type=str, help="Path to the experiment YAML config")
+    run_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate the dataset even if it already exists",
+    )
+    run_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse and validate the config, print resolved paths, run nothing",
+    )
+    run_parser.add_argument(
+        "--stage",
+        type=str,
+        choices=["generate", "respond", "verify", "error_check"],
+        help="Run only this single stage",
+    )
+
+    init_parser = subparsers.add_parser(
+        "init", help="Interactively create an experiment YAML config"
+    )
+    init_parser.add_argument("--name", type=str, help="Experiment name")
+    init_parser.add_argument(
+        "--task", type=str, choices=["single", "conflict", "fill"], help="Task type"
+    )
+    init_parser.add_argument("--n", type=int, help="Number of samples")
+    init_parser.add_argument("--depth", type=int, help="Recursion depth")
+    init_parser.add_argument("--model", type=str, help="Response model")
+    init_parser.add_argument("--check-model", type=str, help="Verification model")
+    init_parser.add_argument("--workers", type=int, help="Parallel workers")
+    init_parser.add_argument(
+        "--stages", type=str, help="Comma-separated stage list (default: generate,respond,verify)"
+    )
+    init_parser.add_argument("--output", type=str, help="Output YAML path (default: <name>.yaml)")
+    init_parser.add_argument(
+        "--no-run", action="store_true", help="Write the config but do not run it"
+    )
+
     args = parser.parse_args()
     if args.command == "data":
         generate_data.main(
@@ -223,46 +208,58 @@ def main():
             workers=args.workers,
             model=args.model,
         )
-    elif args.command == "extract":
-        extract_error.main(
-            path=args.paths,
-            workers=args.workers,
-            model=args.model,
-            rounds=args.rounds,
-            threshold=args.threshold,
-            output_name=args.output_name,
-            chat_type=args.chat_type,
-            hint=args.hint,
-        )
     elif args.command == "pipeline":
-        # 1. 数据生成(如果已有则跳过)
-        if not os.path.exists(f"datasets/{args.name}.json"):
-            generate_data.main(
-                n=args.n,
-                name=args.name,
-                depth=args.depth,
-                hint="indirect pos",
-            )
+        # Task datasets are stored with a suffix (_conflict / _fillblank); the
+        # base dataset is an intermediate artifact for the two special tasks.
+        if args.chat_type == "conflict":
+            dataset_name = f"{args.name}_conflict"
+        elif args.chat_type == "fill":
+            dataset_name = f"{args.name}_fillblank"
+        else:
+            dataset_name = args.name
+
+        # 1. 数据生成(如果任务数据集已有则跳过)
+        if not os.path.exists(f"datasets/{dataset_name}.json"):
+            if not os.path.exists(f"datasets/{args.name}.json"):
+                generate_data.main(
+                    n=args.n,
+                    name=args.name,
+                    depth=args.depth,
+                    hint="indirect pos",
+                )
+            if args.chat_type == "conflict":
+                generate_sp_task.generate_conflict_task(args.name)
+            elif args.chat_type == "fill":
+                generate_sp_task.generate_fillblank_task(args.name)
         # 2. 回答生成
         generate_response.main(
-            name=args.name,
+            name=dataset_name,
             chat_type=args.chat_type,
             model=args.model,
             workers=args.workers,
             hint="hint",
         )
         # 3. 答案校验
-        right = qa_checker.answer_verify(args.name + "_" + args.model)
+        answers_name = f"{dataset_name}_{args.model}"
+        right = qa_checker.answer_verify(answers_name)
         print(f"Answer verification completed. Correct answers: {right}")
-        # 4. 错误校验
+        # 4. 错误校验(答案文件按 {dataset}_{model} 命名)
         if not args.skip_error_check:
             error_checker.main(
-                path=args.name,
-                workers=(
-                    right // 8
+                path=answers_name,
+                workers=max(
+                    1, right // 8
                 ),  # 根据正确率动态调整错误校验的线程数，避免过多线程导致API调用过快
                 model=args.check_model,
             )
+    elif args.command == "run":
+        from runner import cli as runner_cli
+
+        raise SystemExit(runner_cli.main_run(args))
+    elif args.command == "init":
+        from runner import cli as runner_cli
+
+        raise SystemExit(runner_cli.main_init(args))
     else:
         parser.print_help()
 

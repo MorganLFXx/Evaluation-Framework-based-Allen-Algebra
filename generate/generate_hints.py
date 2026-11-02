@@ -1,5 +1,3 @@
-from pydantic.fields import Deprecated
-
 from generate.hint import *
 import generate.hint as hint
 from utils.relation import allen_relations
@@ -32,7 +30,7 @@ def get_relation_hint(rel: str, l_no: int, r_no: int, events: list) -> list:
 
 
 def generate_neg_hints(path, events):
-    """提供直接否定提示"""
+    """Generate negative hints for a given path and events"""
     neg_hints = []
     for rel in path["excluded"]:
         l_no = path["base_event"][0]
@@ -41,7 +39,6 @@ def generate_neg_hints(path, events):
     return neg_hints
 
 
-@Deprecated
 def generate_indirect_neg_hints(path, events):
     hints = []
     seen_attrs = set()
@@ -193,4 +190,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    print(1)

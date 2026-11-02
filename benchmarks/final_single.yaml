@@ -1,0 +1,9 @@
+# Paper benchmark: GOD (1,000 samples), datasets/final_single.json
+# Override model / workers to match the model under evaluation.
+name: final_single
+dataset: final_single
+task: single
+model: qwen3.5-plus
+check_model: qwen3.5-plus
+workers: 8
+stages: [respond, verify, error_check]

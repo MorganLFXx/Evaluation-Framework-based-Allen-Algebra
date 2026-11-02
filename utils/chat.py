@@ -8,7 +8,6 @@ import json
 load_dotenv()
 
 zhipu_apikey = os.getenv("ZHIPU_API_KEY")
-pony_apikey = os.getenv("PONY_API_KEY")
 deepseek_apikey = os.getenv("DEEPSEEK_API_KEY")
 tongyi_apikey = os.getenv("TONGYI_API_KEY")
 open_route_apikey = os.getenv("OPEN_ROUTE_API_KEY")
