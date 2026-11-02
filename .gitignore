@@ -14,6 +14,7 @@ allenEnv/
 .idea
 .vscode/
 .github/
+.claude/
 
 # dataset
 datas/
